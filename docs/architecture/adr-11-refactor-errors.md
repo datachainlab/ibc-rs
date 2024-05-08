@@ -53,7 +53,7 @@ the new `ProtocolError` type and the current `ContextError` type are that:
 
 Thus, protocol errors are not ones that we expect users to handle.
 
-#### Top-level Error
+## Decision
 
 Tying host and protocol errors together is the top-level error type:
 
@@ -73,7 +73,7 @@ match dispatch(...) {
 }
 ```
 
-## Decision
+[Where should this top-level error type reside?]
 
 ## Tradeoffs
 
