@@ -43,6 +43,12 @@ impl ConsensusState {
     }
 }
 
+impl From<ConsensusState> for ConsensusStateType {
+    fn from(value: ConsensusState) -> Self {
+        value.0
+    }
+}
+
 impl Protobuf<RawTmConsensusState> for ConsensusState {}
 
 impl TryFrom<RawTmConsensusState> for ConsensusState {
@@ -88,9 +94,5 @@ impl ConsensusStateTrait for ConsensusState {
 
     fn timestamp(&self) -> Timestamp {
         self.0.timestamp.into()
-    }
-
-    fn encode_vec(self) -> Vec<u8> {
-        <Self as Protobuf<Any>>::encode_vec(self)
     }
 }

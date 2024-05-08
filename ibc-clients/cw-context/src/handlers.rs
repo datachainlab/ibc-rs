@@ -1,5 +1,6 @@
 use cosmwasm_std::{to_json_binary, Binary};
 use ibc_core::client::context::prelude::*;
+use ibc_core::client::types::error::ClientError;
 use ibc_core::host::types::path::ClientConsensusStatePath;
 use ibc_core::primitives::proto::Any;
 use prost::Message;
@@ -13,12 +14,16 @@ use crate::types::{
     VerifyUpgradeAndUpdateStateMsg,
 };
 
-impl<'a, C: ClientType<'a>> Context<'a, C> {
+impl<'a, C: ClientType<'a>> Context<'a, C>
+where
+    <C::ClientState as TryFrom<Any>>::Error: Into<ClientError>,
+    <C::ConsensusState as TryFrom<Any>>::Error: Into<ClientError>,
+{
     /// Instantiates a new client with the given [`InstantiateMsg`] message.
     pub fn instantiate(&mut self, msg: InstantiateMsg) -> Result<Binary, ContractError> {
         let any = Any::decode(&mut msg.client_state.as_slice())?;
 
-        let client_state = C::ClientState::try_from(any)?;
+        let client_state = C::ClientState::try_from(any).map_err(Into::into)?;
 
         let any_consensus_state = Any::decode(&mut msg.consensus_state.as_slice())?;
 
@@ -126,14 +131,23 @@ impl<'a, C: ClientType<'a>> Context<'a, C> {
             SudoMsg::MigrateClientStore(_) => {
                 self.set_substitute_prefix();
                 let substitute_client_state = self.client_state(&client_id)?;
+                let substitute_consensus_state =
+                    self.consensus_state(&ClientConsensusStatePath::new(
+                        client_id.clone(),
+                        substitute_client_state.latest_height().revision_number(),
+                        substitute_client_state.latest_height().revision_height(),
+                    ))?;
+
+                let substitute_client_state_any = substitute_client_state.into();
 
                 self.set_subject_prefix();
-                client_state.check_substitute(self, substitute_client_state.clone().into())?;
+                client_state.check_substitute(self, substitute_client_state_any.clone())?;
 
                 client_state.update_on_recovery(
                     self,
                     &self.client_id(),
-                    substitute_client_state.into(),
+                    substitute_client_state_any,
+                    substitute_consensus_state.into(),
                 )?;
 
                 ContractResult::success()

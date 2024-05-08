@@ -25,20 +25,22 @@ use super::Version;
 use crate::error::ChannelError;
 use crate::packet::Packet;
 
-/// Channel event types
+/// Channel event types corresponding to ibc-go's channel events:
+/// https://github.com/cosmos/ibc-go/blob/c4413c5877f9ef883494da1721cb18caaba7f7f5/modules/core/04-channel/types/events.go#L52-L72
 const CHANNEL_OPEN_INIT_EVENT: &str = "channel_open_init";
 const CHANNEL_OPEN_TRY_EVENT: &str = "channel_open_try";
 const CHANNEL_OPEN_ACK_EVENT: &str = "channel_open_ack";
 const CHANNEL_OPEN_CONFIRM_EVENT: &str = "channel_open_confirm";
 const CHANNEL_CLOSE_INIT_EVENT: &str = "channel_close_init";
 const CHANNEL_CLOSE_CONFIRM_EVENT: &str = "channel_close_confirm";
+const CHANNEL_CLOSED_EVENT: &str = "channel_close";
+
 /// Packet event types
 const SEND_PACKET_EVENT: &str = "send_packet";
-const RECEIVE_PACKET_EVENT: &str = "receive_packet";
+const RECEIVE_PACKET_EVENT: &str = "recv_packet";
 const WRITE_ACK_EVENT: &str = "write_acknowledgement";
 const ACK_PACKET_EVENT: &str = "acknowledge_packet";
 const TIMEOUT_EVENT: &str = "timeout_packet";
-const CHANNEL_CLOSED_EVENT: &str = "channel_close";
 
 #[cfg_attr(
     feature = "parity-scale-codec",
@@ -1244,12 +1246,18 @@ mod tests {
             assert_eq!(t.kind, t.event.kind);
             assert_eq!(t.expected_keys.len(), t.event.attributes.len());
             for (i, e) in t.event.attributes.iter().enumerate() {
-                assert_eq!(e.key, t.expected_keys[i], "key mismatch for {:?}", t.kind);
+                assert_eq!(
+                    e.key_str().unwrap(),
+                    t.expected_keys[i],
+                    "key mismatch for {:?}",
+                    t.kind
+                );
             }
             assert_eq!(t.expected_values.len(), t.event.attributes.len());
             for (i, e) in t.event.attributes.iter().enumerate() {
                 assert_eq!(
-                    e.value, t.expected_values[i],
+                    e.value_str().unwrap(),
+                    t.expected_values[i],
                     "value mismatch for {:?}",
                     t.kind
                 );

@@ -5,10 +5,10 @@ mod msg_update_client;
 mod msg_upgrade_client;
 
 #[cfg(feature = "serde")]
-pub use msg_create_client::*;
+pub use self::msg_create_client::*;
 #[cfg(feature = "serde")]
-pub use msg_update_client::*;
-pub use msg_upgrade_client::*;
+pub use self::msg_update_client::*;
+pub use self::msg_upgrade_client::*;
 
 #[cfg(test)]
 mod tests {
@@ -96,14 +96,16 @@ mod tests {
             assert_eq!(t.expected_keys.len(), t.event.attributes.len());
             for (i, e) in t.event.attributes.iter().enumerate() {
                 assert_eq!(
-                    e.key, t.expected_keys[i],
+                    e.key_str().unwrap(),
+                    t.expected_keys[i],
                     "key mismatch for {:?}",
                     t.event_kind
                 );
             }
             for (i, e) in t.event.attributes.iter().enumerate() {
                 assert_eq!(
-                    e.value, t.expected_values[i],
+                    e.value_str().unwrap(),
+                    t.expected_values[i],
                     "value mismatch for {:?}",
                     t.event_kind
                 );

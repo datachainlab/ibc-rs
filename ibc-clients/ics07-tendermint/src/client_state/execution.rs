@@ -15,7 +15,8 @@ impl<E> ClientStateExecution<E> for ClientState
 where
     E: ExtClientExecutionContext,
     E::ClientStateRef: From<ClientStateType>,
-    E::ConsensusStateRef: Convertible<ConsensusStateType, ClientError>,
+    ConsensusStateType: Convertible<E::ConsensusStateRef>,
+    <ConsensusStateType as TryFrom<E::ConsensusStateRef>>::Error: Into<ClientError>,
 {
     fn initialise(
         &self,
@@ -65,6 +66,7 @@ where
         ctx: &mut E,
         subject_client_id: &ClientId,
         substitute_client_state: Any,
+        substitute_consensus_state: Any,
     ) -> Result<(), ClientError> {
         let subject_client_state = self.inner().clone();
 
@@ -73,6 +75,7 @@ where
             ctx,
             subject_client_id,
             substitute_client_state,
+            substitute_consensus_state,
         )
     }
 }
@@ -91,12 +94,12 @@ pub fn initialise<E>(
 where
     E: ExtClientExecutionContext,
     E::ClientStateRef: From<ClientStateType>,
-    E::ConsensusStateRef: Convertible<ConsensusStateType, ClientError>,
+    ConsensusStateType: Convertible<E::ConsensusStateRef>,
 {
     let host_timestamp = ExtClientValidationContext::host_timestamp(ctx)?;
     let host_height = ExtClientValidationContext::host_height(ctx)?;
 
-    let tm_consensus_state = ConsensusStateType::try_from(consensus_state)?;
+    let tm_consensus_state: ConsensusStateType = consensus_state.try_into()?;
 
     ctx.store_client_state(
         ClientStatePath::new(client_id.clone()),
@@ -136,7 +139,8 @@ pub fn update_state<E>(
 where
     E: ExtClientExecutionContext,
     E::ClientStateRef: From<ClientStateType>,
-    E::ConsensusStateRef: Convertible<ConsensusStateType, ClientError>,
+    ConsensusStateType: Convertible<E::ConsensusStateRef>,
+    <ConsensusStateType as TryFrom<E::ConsensusStateRef>>::Error: Into<ClientError>,
 {
     let header = TmHeader::try_from(header)?;
     let header_height = header.height();
@@ -235,10 +239,10 @@ pub fn update_on_upgrade<E>(
 where
     E: ExtClientExecutionContext,
     E::ClientStateRef: From<ClientStateType>,
-    E::ConsensusStateRef: Convertible<ConsensusStateType, ClientError>,
+    ConsensusStateType: Convertible<E::ConsensusStateRef>,
 {
     let mut upgraded_tm_client_state = ClientState::try_from(upgraded_client_state)?;
-    let upgraded_tm_cons_state = ConsensusStateType::try_from(upgraded_consensus_state)?;
+    let upgraded_tm_cons_state: ConsensusStateType = upgraded_consensus_state.try_into()?;
 
     upgraded_tm_client_state.0.zero_custom_fields();
 
@@ -315,7 +319,8 @@ pub fn prune_oldest_consensus_state<E>(
 where
     E: ClientExecutionContext + ExtClientValidationContext,
     E::ClientStateRef: From<ClientStateType>,
-    E::ConsensusStateRef: Convertible<ConsensusStateType, ClientError>,
+    ConsensusStateType: Convertible<E::ConsensusStateRef>,
+    <ConsensusStateType as TryFrom<E::ConsensusStateRef>>::Error: Into<ClientError>,
 {
     let mut heights = ctx.consensus_state_heights(client_id)?;
 
@@ -328,7 +333,8 @@ where
             height.revision_height(),
         );
         let consensus_state = ctx.consensus_state(&client_consensus_state_path)?;
-        let tm_consensus_state = consensus_state.try_into()?;
+        let tm_consensus_state: ConsensusStateType =
+            consensus_state.try_into().map_err(Into::into)?;
 
         let host_timestamp =
             ctx.host_timestamp()?
@@ -373,10 +379,12 @@ pub fn update_on_recovery<E>(
     ctx: &mut E,
     subject_client_id: &ClientId,
     substitute_client_state: Any,
+    substitute_consensus_state: Any,
 ) -> Result<(), ClientError>
 where
     E: ExtClientExecutionContext,
     E::ClientStateRef: From<ClientStateType>,
+    ConsensusStateType: Convertible<E::ConsensusStateRef>,
 {
     let substitute_client_state = ClientState::try_from(substitute_client_state)?
         .inner()
@@ -396,6 +404,17 @@ where
 
     let host_timestamp = E::host_timestamp(ctx)?;
     let host_height = E::host_height(ctx)?;
+
+    let tm_consensus_state: ConsensusStateType = substitute_consensus_state.try_into()?;
+
+    ctx.store_consensus_state(
+        ClientConsensusStatePath::new(
+            subject_client_id.clone(),
+            new_client_state.latest_height.revision_number(),
+            new_client_state.latest_height.revision_height(),
+        ),
+        tm_consensus_state.into(),
+    )?;
 
     ctx.store_client_state(
         ClientStatePath::new(subject_client_id.clone()),
