@@ -22,22 +22,7 @@ as internal protocol errors that aim to accomplish (2).
 ### Proposal
 
 In light of this rationale, this ADR proposes a restructuring of `ibc-rs`'s error types such
-that each adheres to one and only one classification: host errors and protocol errors.
-
-#### Host Errors
-
-These errors are defined and controlled by hosts. They should ideally only be returned
-from `ValidationContext`/`ExecutionContext` methods, and are defined as associated
-types on those contexts:
-
-```diff
-pub trait ValidationContext {
-+    type Error;
-
--    fn host_timestamp(&self) -> Result<Timestamp, ContextError>;
-+    fn host_timestamp(&self) -> Result<Timestamp, Self::Error>;
-}
-```
+that each adheres to one and only one classification: protocol errors and host errors.
 
 #### Protocol Errors
 
@@ -53,27 +38,47 @@ the new `ProtocolError` type and the current `ContextError` type are that:
 
 Thus, protocol errors are not ones that we expect users to handle.
 
+#### Host Errors
+
+These errors are defined and controlled by hosts. They should ideally only be returned
+from `ValidationContext`/`ExecutionContext` methods, and are defined as associated
+types on those contexts:
+
+```diff
+use ibc_core::error::ProtcolError as IbcProtoclError;
+
+pub trait ValidationContext {
++    type Error: From <IbcProtcolError>;
+
+-    fn host_timestamp(&self) -> Result<Timestamp, ContextError>;
++    fn host_timestamp(&self) -> Result<Timestamp, Self::Error>;
+}
+```
+
+```rust
+// Example of a host-defined error type
+enum HostError {
+    Ibc(IbcProtcolError),
+    // Other error variants relevant to the host
+    ...
+}
+
+impl From<IbcProtocolError> for HostError {
+    fn from(ibc_error: IbcProtocolError) -> Self {
+        Self {
+             Ibc(ibc_error)
+        }
+    }
+}
+```
+
+Host-defined error types would wrap `ibc-rs`'s `ProtocolError` type and implement
+`From<IbcProtocolError>` in order to facilitate conversion between them.
+
 ## Decision
 
-Tying host and protocol errors together is the top-level error type:
-
-```rust
-enum Error<E> {
-    Host(E),
-    Protocol(ProtocolError),
-}
-```
-
-This error would only be returned by `dispatch`, and would be dealt with like so:
-
-```rust
-match dispatch(...) {
-    Host(err) => /* optionally handle this error */,
-    Protocol(err) => /* log error */,
-}
-```
-
 [Where should this top-level error type reside?]
+[Should ValidationContexts implemented on apps (i.e. the TokenTransfer app) also implement an `Error` associated type?]
 
 ## Tradeoffs
 
