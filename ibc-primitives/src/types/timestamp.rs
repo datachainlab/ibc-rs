@@ -33,10 +33,7 @@ pub struct Timestamp {
 
 #[cfg(feature = "borsh")]
 impl borsh::BorshSerialize for Timestamp {
-    fn serialize<W: borsh::maybestd::io::Write>(
-        &self,
-        writer: &mut W,
-    ) -> borsh::maybestd::io::Result<()> {
+    fn serialize<W: borsh::io::Write>(&self, writer: &mut W) -> borsh::io::Result<()> {
         let timestamp = self.nanoseconds();
         borsh::BorshSerialize::serialize(&timestamp, writer)
     }
@@ -44,11 +41,9 @@ impl borsh::BorshSerialize for Timestamp {
 
 #[cfg(feature = "borsh")]
 impl borsh::BorshDeserialize for Timestamp {
-    fn deserialize_reader<R: borsh::maybestd::io::Read>(
-        reader: &mut R,
-    ) -> borsh::maybestd::io::Result<Self> {
+    fn deserialize_reader<R: borsh::io::Read>(reader: &mut R) -> borsh::io::Result<Self> {
         let timestamp = u64::deserialize_reader(reader)?;
-        Ok(Self::from_nanoseconds(timestamp).map_err(|_| borsh::maybestd::io::ErrorKind::Other)?)
+        Ok(Self::from_nanoseconds(timestamp).map_err(|_| borsh::io::ErrorKind::Other)?)
     }
 }
 
@@ -89,8 +84,8 @@ impl scale_info::TypeInfo for Timestamp {
 /// - If the left timestamp is strictly after the right timestamp, the result is `Expired`.
 /// - Otherwise, the result is `NotExpired`.
 ///
-/// User of this result may want to determine whether error should be raised,
-/// when either of the timestamp being compared is invalid.
+/// Users of this result may want to determine whether an error should be raised,
+/// when either of the timestamps being compared is invalid.
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(PartialEq, Eq, Copy, Clone, Debug, Hash)]
 pub enum Expiry {
@@ -140,7 +135,7 @@ impl Timestamp {
     /// Computes the duration difference of another `Timestamp` from the current one.
     /// Returns the difference in time as an [`core::time::Duration`].
     /// Returns `None` if the other `Timestamp` is more advanced
-    /// than the current or if either of the `Timestamp`s is not set.
+    /// than the current, or if either of the `Timestamp`s is not set.
     pub fn duration_since(&self, other: &Self) -> Option<Duration> {
         match (self.time, other.time) {
             (Some(time1), Some(time2)) => time1.duration_since(time2).ok(),
@@ -374,10 +369,9 @@ mod tests {
     #[test]
     #[cfg(feature = "borsh")]
     fn test_timestamp_borsh_ser_der() {
-        use borsh::{BorshDeserialize, BorshSerialize};
         let timestamp = Timestamp::now();
-        let encode_timestamp = timestamp.try_to_vec().unwrap();
-        let _ = Timestamp::try_from_slice(&encode_timestamp).unwrap();
+        let encode_timestamp = borsh::to_vec(&timestamp).unwrap();
+        let _ = borsh::from_slice::<Timestamp>(&encode_timestamp).unwrap();
     }
 
     #[test]

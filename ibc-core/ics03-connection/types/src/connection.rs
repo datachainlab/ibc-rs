@@ -154,10 +154,7 @@ mod sealed {
 
     #[cfg(feature = "borsh")]
     impl borsh::BorshSerialize for ConnectionEnd {
-        fn serialize<W: borsh::maybestd::io::Write>(
-            &self,
-            writer: &mut W,
-        ) -> borsh::maybestd::io::Result<()> {
+        fn serialize<W: borsh::io::Write>(&self, writer: &mut W) -> borsh::io::Result<()> {
             let value = InnerConnectionEnd::from(self.clone());
             borsh::BorshSerialize::serialize(&value, writer)
         }
@@ -165,9 +162,7 @@ mod sealed {
 
     #[cfg(feature = "borsh")]
     impl borsh::BorshDeserialize for ConnectionEnd {
-        fn deserialize_reader<R: borsh::maybestd::io::Read>(
-            reader: &mut R,
-        ) -> borsh::maybestd::io::Result<Self> {
+        fn deserialize_reader<R: borsh::io::Read>(reader: &mut R) -> borsh::io::Result<Self> {
             let inner_conn_end = InnerConnectionEnd::deserialize_reader(reader)?;
             Ok(ConnectionEnd::from(inner_conn_end))
         }
@@ -465,7 +460,8 @@ impl Counterparty {
 )]
 #[cfg_attr(
     feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize),
+    borsh(use_discriminant = false)
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -488,7 +484,7 @@ impl State {
         }
     }
 
-    /// Parses the State out from a i32.
+    /// Parses the State out from an i32.
     pub fn from_i32(s: i32) -> Result<Self, ConnectionError> {
         match s {
             0 => Ok(Self::Uninitialized),
@@ -502,13 +498,13 @@ impl State {
         }
     }
 
-    /// Returns whether or not this connection state is `Open`.
+    /// Returns if this connection state is `Open`.
     pub fn is_open(self) -> bool {
         self == State::Open
     }
 
-    /// Returns whether or not this connection with this state
-    /// has progressed less or the same than the argument.
+    /// Returns if this connection with this state
+    /// has progressed less than or the same as the argument.
     ///
     /// # Example
     /// ```rust,ignore

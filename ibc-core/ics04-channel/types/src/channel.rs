@@ -314,7 +314,7 @@ impl ChannelEnd {
 
     /// Checks if the `connection_hops` has a length of `expected`.
     ///
-    /// Note: Current IBC version only supports one connection hop.
+    /// Note: The current IBC version only supports one connection hop.
     pub fn verify_connection_hops_length(&self) -> Result<(), ChannelError> {
         verify_connection_hops_length(&self.connection_hops, 1)
     }
@@ -445,7 +445,8 @@ impl From<Counterparty> for RawCounterparty {
 )]
 #[cfg_attr(
     feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize),
+    borsh(use_discriminant = false)
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -514,7 +515,8 @@ impl FromStr for Order {
 )]
 #[cfg_attr(
     feature = "borsh",
-    derive(borsh::BorshSerialize, borsh::BorshDeserialize)
+    derive(borsh::BorshSerialize, borsh::BorshDeserialize),
+    borsh(use_discriminant = false)
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "schema", derive(schemars::JsonSchema))]
@@ -554,13 +556,13 @@ impl State {
         }
     }
 
-    /// Returns whether or not this channel state is `Open`.
+    /// Returns if this channel state is `Open`.
     pub fn is_open(self) -> bool {
         self == State::Open
     }
 
-    /// Returns whether or not the channel with this state
-    /// has progressed less or the same than the argument.
+    /// Returns if the channel with this state
+    /// has progressed less than or the same as the argument.
     ///
     /// # Example
     /// ```rust,ignore
