@@ -48,7 +48,7 @@ types on those contexts:
 use ibc_core::error::ProtcolError as IbcProtoclError;
 
 pub trait ValidationContext {
-+    type Error: From <IbcProtcolError>;
++    type Error: From<IbcProtcolError>;
 
 -    fn host_timestamp(&self) -> Result<Timestamp, ContextError>;
 +    fn host_timestamp(&self) -> Result<Timestamp, Self::Error>;
