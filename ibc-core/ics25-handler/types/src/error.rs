@@ -8,9 +8,29 @@ use ibc_core_connection_types::error::ConnectionError;
 use ibc_core_router_types::error::RouterError;
 use ibc_primitives::prelude::*;
 
-/// Top-level error
+/// Top-level ibc-rs error type that distinguishes between:
+/// - Errors that originate at the host level that need to be dealt with by the IBC module.
+/// - Errors that originate from internal ibc-rs code paths that need to be surfaced to the host.
+#[derive(Debug, Display)]
+pub enum Error<E> {
+    /// Host-defined errors
+    Host(E),
+    /// Internal protocol-level errors
+    Protocol(ProtocolError),
+}
+
+impl<E> From<ProtocolError> for Error<E> {
+    fn from(protocol_error: ProtocolError) -> Self {
+        Self::Protocol(protocol_error)
+    }
+}
+
+/// Encapsulates all internal ibc-rs errors.
+///
+/// These are not meant to be handled by users; their primary purpose is
+/// to aid in debugging.
 #[derive(Debug, Display, From)]
-pub enum ContextError {
+pub enum ProtocolError {
     /// ICS02 Client error: {0}
     ClientError(ClientError),
     /// ICS03 Connection error: {0}
@@ -23,19 +43,19 @@ pub enum ContextError {
     RouterError(RouterError),
 }
 
-impl From<ContextError> for ClientError {
-    fn from(context_error: ContextError) -> Self {
-        match context_error {
-            ContextError::ClientError(e) => e,
+impl From<ProtocolError> for ClientError {
+    fn from(protocol_error: ProtocolError) -> Self {
+        match protocol_error {
+            ProtocolError::ClientError(e) => e,
             _ => ClientError::Other {
-                description: context_error.to_string(),
+                description: protocol_error.to_string(),
             },
         }
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for ContextError {
+impl std::error::Error for ProtocolError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::ClientError(e) => Some(e),

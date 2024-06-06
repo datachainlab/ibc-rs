@@ -4,15 +4,16 @@ use ibc_core_client_context::prelude::*;
 use ibc_core_client_types::error::ClientError;
 use ibc_core_client_types::events::UpgradeClient;
 use ibc_core_client_types::msgs::MsgUpgradeClient;
-use ibc_core_handler_types::error::ContextError;
+use ibc_core_handler_types::error::ProtocolError;
 use ibc_core_handler_types::events::{IbcEvent, MessageEvent};
 use ibc_core_host::types::path::ClientConsensusStatePath;
 use ibc_core_host::{ExecutionContext, ValidationContext};
 use ibc_primitives::prelude::*;
 
-pub fn validate<Ctx>(ctx: &Ctx, msg: MsgUpgradeClient) -> Result<(), ContextError>
+pub fn validate<Ctx>(ctx: &Ctx, msg: MsgUpgradeClient) -> Result<(), Ctx::Error>
 where
     Ctx: ValidationContext,
+    Ctx::Error: From<ClientError> + From<ProtocolError>,
 {
     let MsgUpgradeClient {
         client_id, signer, ..
@@ -55,9 +56,10 @@ where
     Ok(())
 }
 
-pub fn execute<Ctx>(ctx: &mut Ctx, msg: MsgUpgradeClient) -> Result<(), ContextError>
+pub fn execute<Ctx>(ctx: &mut Ctx, msg: MsgUpgradeClient) -> Result<(), Ctx::Error>
 where
     Ctx: ExecutionContext,
+    Ctx::Error: From<ClientError> + From<ProtocolError>,
 {
     let MsgUpgradeClient { client_id, .. } = msg;
 

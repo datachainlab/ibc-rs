@@ -5,15 +5,15 @@ use core::str::Utf8Error;
 use displaydoc::Display;
 use ibc_core::channel::types::acknowledgement::StatusValue;
 use ibc_core::channel::types::channel::Order;
-use ibc_core::handler::types::error::ContextError;
+use ibc_core::handler::types::error::ProtocolError;
 use ibc_core::host::types::error::IdentifierError;
 use ibc_core::host::types::identifiers::{ChannelId, PortId};
 use ibc_core::primitives::prelude::*;
 
 #[derive(Display, Debug)]
 pub enum NftTransferError {
-    /// context error: `{0}`
-    ContextError(ContextError),
+    /// IBC protocol error: `{0}`
+    Ibc(ProtocolError),
     /// invalid identifier: `{0}`
     InvalidIdentifier(IdentifierError),
     /// invalid URI: `{uri}`, validation error: `{validation_error}``
@@ -96,7 +96,7 @@ pub enum NftTransferError {
 impl std::error::Error for NftTransferError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self {
-            Self::ContextError(e) => Some(e),
+            Self::Ibc(e) => Some(e),
             Self::InvalidUri {
                 validation_error: e,
                 ..
@@ -121,9 +121,9 @@ impl From<Infallible> for NftTransferError {
     }
 }
 
-impl From<ContextError> for NftTransferError {
-    fn from(err: ContextError) -> NftTransferError {
-        Self::ContextError(err)
+impl From<ProtocolError> for NftTransferError {
+    fn from(err: ProtocolError) -> NftTransferError {
+        Self::Ibc(err)
     }
 }
 

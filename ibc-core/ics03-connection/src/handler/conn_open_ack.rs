@@ -6,7 +6,7 @@ use ibc_core_connection_types::error::ConnectionError;
 use ibc_core_connection_types::events::OpenAck;
 use ibc_core_connection_types::msgs::MsgConnectionOpenAck;
 use ibc_core_connection_types::{ConnectionEnd, Counterparty, State};
-use ibc_core_handler_types::error::ContextError;
+use ibc_core_handler_types::error::ProtocolError;
 use ibc_core_handler_types::events::{IbcEvent, MessageEvent};
 use ibc_core_host::types::identifiers::ClientId;
 use ibc_core_host::types::path::{ClientConsensusStatePath, ClientStatePath, ConnectionPath, Path};
@@ -15,22 +15,26 @@ use ibc_primitives::prelude::*;
 use ibc_primitives::proto::{Any, Protobuf};
 use ibc_primitives::ToVec;
 
-pub fn validate<Ctx>(ctx_a: &Ctx, msg: MsgConnectionOpenAck) -> Result<(), ContextError>
+use crate::handler::unpack_host_client_state;
+
+pub fn validate<Ctx>(ctx_a: &Ctx, msg: MsgConnectionOpenAck) -> Result<(), Ctx::Error>
 where
     Ctx: ValidationContext,
+    Ctx::Error: From<ClientError> + From<ProtocolError>,
     <Ctx::HostClientState as TryFrom<Any>>::Error: Into<ClientError>,
 {
     let vars = LocalVars::new(ctx_a, &msg)?;
-    validate_impl(ctx_a, &msg, &vars)
+    validate_impl(ctx_a, &msg, &vars).map_err(Into::into)
 }
 
 fn validate_impl<Ctx>(
     ctx_a: &Ctx,
     msg: &MsgConnectionOpenAck,
     vars: &LocalVars,
-) -> Result<(), ContextError>
+) -> Result<(), Ctx::Error>
 where
     Ctx: ValidationContext,
+    Ctx::Error: From<ClientError> + From<ProtocolError>,
     <Ctx::HostClientState as TryFrom<Any>>::Error: Into<ClientError>,
 {
     ctx_a.validate_message_signer(&msg.signer)?;
@@ -48,8 +52,10 @@ where
 
     let client_val_ctx_a = ctx_a.get_client_validation_context();
 
-    let client_state_of_a_on_b =
-        Ctx::HostClientState::try_from(msg.client_state_of_a_on_b.clone()).map_err(Into::into)?;
+    let client_state_of_a_on_b = unpack_host_client_state::<Ctx::HostClientState>(
+        msg.client_state_of_a_on_b.clone(),
+        vars.client_id_on_b(),
+    )?;
 
     ctx_a.validate_self_client(client_state_of_a_on_b)?;
 
@@ -142,7 +148,7 @@ where
     Ok(())
 }
 
-pub fn execute<Ctx>(ctx_a: &mut Ctx, msg: MsgConnectionOpenAck) -> Result<(), ContextError>
+pub fn execute<Ctx>(ctx_a: &mut Ctx, msg: MsgConnectionOpenAck) -> Result<(), ProtocolError>
 where
     Ctx: ExecutionContext,
 {
@@ -154,7 +160,7 @@ fn execute_impl<Ctx>(
     ctx_a: &mut Ctx,
     msg: MsgConnectionOpenAck,
     vars: LocalVars,
-) -> Result<(), ContextError>
+) -> Result<(), ProtocolError>
 where
     Ctx: ExecutionContext,
 {
@@ -192,7 +198,7 @@ struct LocalVars {
 }
 
 impl LocalVars {
-    fn new<Ctx>(ctx_a: &Ctx, msg: &MsgConnectionOpenAck) -> Result<Self, ContextError>
+    fn new<Ctx>(ctx_a: &Ctx, msg: &MsgConnectionOpenAck) -> Result<Self, ProtocolError>
     where
         Ctx: ValidationContext,
     {

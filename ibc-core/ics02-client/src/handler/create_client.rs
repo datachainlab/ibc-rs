@@ -4,13 +4,13 @@ use ibc_core_client_context::prelude::*;
 use ibc_core_client_types::error::ClientError;
 use ibc_core_client_types::events::CreateClient;
 use ibc_core_client_types::msgs::MsgCreateClient;
-use ibc_core_handler_types::error::ContextError;
+use ibc_core_handler_types::error::Error;
 use ibc_core_handler_types::events::{IbcEvent, MessageEvent};
 use ibc_core_host::{ClientStateMut, ClientStateRef, ExecutionContext, ValidationContext};
 use ibc_primitives::prelude::*;
 use ibc_primitives::proto::Any;
 
-pub fn validate<Ctx>(ctx: &Ctx, msg: MsgCreateClient) -> Result<(), ContextError>
+pub fn validate<Ctx>(ctx: &Ctx, msg: MsgCreateClient) -> Result<(), Error<Ctx::HostError>>
 where
     Ctx: ValidationContext,
     <ClientStateRef<Ctx> as TryFrom<Any>>::Error: Into<ClientError>,
@@ -32,6 +32,7 @@ where
 
     let client_id = client_state.client_type().build_client_id(id_counter);
 
+    // Need to be able to convert a `ClientError` into a `Ctx::Error`
     let status = client_state.status(client_val_ctx, &client_id)?;
 
     if status.is_frozen() {
@@ -50,7 +51,7 @@ where
     Ok(())
 }
 
-pub fn execute<Ctx>(ctx: &mut Ctx, msg: MsgCreateClient) -> Result<(), ContextError>
+pub fn execute<Ctx>(ctx: &mut Ctx, msg: MsgCreateClient) -> Result<(), Error<Ctx::HostError>>
 where
     Ctx: ExecutionContext,
     <ClientStateMut<Ctx> as TryFrom<Any>>::Error: Into<ClientError>,
