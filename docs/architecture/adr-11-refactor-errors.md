@@ -6,6 +6,8 @@
 
 ## Status
 
+Proposed
+
 ## Context
 
 Errors in `ibc-rs` should accomplish one of two possible purposes:
@@ -14,15 +16,15 @@ Errors in `ibc-rs` should accomplish one of two possible purposes:
 2. They provide a detailed human-readable report of an error stack for debugging purposes.
 
 Any error types that are encoded as enums should be addressing (1). This implies that every error enum variant should
-be one that users are actually able to respond to. However, `ibc-rs`'s myriad `Error` types (see [ics07][ics07-error] and [ics25][ics25-error] errors) expose
+be one that users are actually able to respond to. However, `ibc-rs`'s myriad `Error` types (see [ics07][ics07-error] and [ics25][ics25-error] errors for examples) expose
 too many variants that are too specific; most of them are not errors that would ever be exposed to users, much less
-reacted to with bespoke logic. Since it's unrealistic to expect that users would handle these errors, they should regarded
+reacted to with bespoke logic. Since it's unrealistic to expect that users would handle these errors, they should be regarded
 as internal protocol errors that aim to accomplish (2).
 
 ### Proposal
 
 In light of this rationale, this ADR proposes a restructuring of `ibc-rs`'s error types such
-that each adheres to one and only one classification: protocol errors and host errors.
+that each error type adheres to one and only one classification: protocol errors and host errors.
 
 #### Protocol Errors
 
@@ -30,50 +32,49 @@ These errors are defined within `ibc-rs`, and are emitted with the goal of build
 up a helpful stack trace when an error occurs.
 
 The top-level type that encapsulates all protocol errors would be a cleaned up version
-of the current [`ContextError`][context-error] type. The main differences between
-the new `ProtocolError` type and the current `ContextError` type are that:
+of the current [`ContextError`][context-error] type; this cleaned up version will be
+renamed to `ProtocolError` in order to better capture its IBC-internal nature.
+The main differences between the `ProtocolError` type and the current `ContextError` type are that:
 
-- it would no longer include error variants for representing host errors
+- it would no longer include error variants for representing errors that arise from hosts' code
 - its purpose is solely to generate clear error messages for debugging
 
-Thus, protocol errors are not ones that we expect users to handle.
+Thus, protocol errors are not ones that we expect users to handle. They should instead provide
+nicely-formatted backtrace and source information to aid in the debugging process as much as possible.
 
 #### Host Errors
 
 These errors are defined and controlled by hosts. They should ideally only be returned
-from `ValidationContext`/`ExecutionContext` methods, and are defined as associated
-types on those contexts:
+from host implementations of `ValidationContext`/`ExecutionContext` methods. We introduce a
+`HostError` associated type on those contexts:
 
 ```diff
-use ibc_core::error::ProtcolError as IbcProtoclError;
+use ibc_core_handler_types::error::Error;
+use std::error::Error as StdError;
 
 pub trait ValidationContext {
-+    type Error: From<IbcProtcolError>;
++    type HostError: Debug + Display + StdError;
 
 -    fn host_timestamp(&self) -> Result<Timestamp, ContextError>;
-+    fn host_timestamp(&self) -> Result<Timestamp, Self::Error>;
++    fn host_timestamp(&self) -> Result<Timestamp, Error<Self::HostError>>;
 }
 ```
 
+`ibc-rs`'s new top-level `Error` type is defined as such:
 ```rust
-// Example of a host-defined error type
-enum HostError {
-    Ibc(IbcProtcolError),
-    // Other error variants relevant to the host
-    ...
-}
-
-impl From<IbcProtocolError> for HostError {
-    fn from(ibc_error: IbcProtocolError) -> Self {
-        Self {
-             Ibc(ibc_error)
-        }
-    }
+#[derive(Debug, Display)]
+pub enum Error<E> {
+    Host(E),
+    Protocol(ProtocolError),
 }
 ```
 
-Host-defined error types would wrap `ibc-rs`'s `ProtocolError` type and implement
-`From<IbcProtocolError>` in order to facilitate conversion between them.
+The top-level `Error` type captures the `HostError` via a generic parameter, enabling
+`ibc-rs`'s logic to react or respond to host-originating errors. This is as opposed to
+the current status quo of how host-originating errors are handled, which is that they
+are clumsily mapped onto `ibc-rs`'s `ContextError` type. This results in these host-
+originating errors not being handled appropriately, as well as contributing to the bloat
+of `ibc-rs`'s error enums.
 
 ## Decision
 
