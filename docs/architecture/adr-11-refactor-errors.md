@@ -78,6 +78,7 @@ of `ibc-rs`'s error enums.
 
 ## Decision
 
+[What trait bounds should exist on the `HostError` associated type?]
 [Where should this top-level error type reside?]
 [Should ValidationContexts implemented on apps (i.e. the TokenTransfer app) also implement an `Error` associated type?]
 
