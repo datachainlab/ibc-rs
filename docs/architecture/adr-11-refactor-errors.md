@@ -49,38 +49,45 @@ from host implementations of `ValidationContext`/`ExecutionContext` methods. We 
 `HostError` associated type on those contexts:
 
 ```diff
-use ibc_core_handler_types::error::Error;
+use core::fmt::{Debug, Display};
 use std::error::Error as StdError;
+use ibc_core_handler_types::error::ContextError;
 
 pub trait ValidationContext {
 +    type HostError: Debug + Display + StdError;
 
 -    fn host_timestamp(&self) -> Result<Timestamp, ContextError>;
-+    fn host_timestamp(&self) -> Result<Timestamp, Error<Self::HostError>>;
++    fn host_timestamp(&self) -> Result<Timestamp, ContextError<Self::HostError>>;
 }
 ```
 
-`ibc-rs`'s new top-level `Error` type is defined as such:
+Note that the old `ContextError` type is being renamed to `ProtocolError`. The name
+`ContextError` will now be used as `ibc-rs`'s new top-level error type and is defined as such:
+
 ```rust
 #[derive(Debug, Display)]
-pub enum Error<E> {
+pub enum ContextError<E: Debug + Display> {
+    /// Host-defined errors.
     Host(E),
+    /// Internal protocol-level errors.
     Protocol(ProtocolError),
 }
 ```
 
-The top-level `Error` type captures the `HostError` via a generic parameter, enabling
+This new `ContextError` type captures the `HostError` via a generic parameter, enabling
 `ibc-rs`'s logic to react or respond to host-originating errors. This is as opposed to
 the current status quo of how host-originating errors are handled, which is that they
-are clumsily mapped onto `ibc-rs`'s `ContextError` type. This results in these host-
+are clumsily mapped onto `ibc-rs`'s internal error types. This results in these host-
 originating errors not being handled appropriately, as well as contributing to the bloat
 of `ibc-rs`'s error enums.
 
-## Decision
+## Outstanding Questions
 
-[What trait bounds should exist on the `HostError` associated type?]
-[Where should this top-level error type reside?]
-[Should ValidationContexts implemented on apps (i.e. the TokenTransfer app) also implement an `Error` associated type?]
+- What trait bounds should exist on the `HostError` associated type?
+  - Just `Display` and `Debug`, or perhaps also `std::error::Error`?
+- Should `ValidationContext`s implemented on apps (i.e. the TokenTransfer app) also implement a `HostError` associated type?
+
+## Decision
 
 ## Tradeoffs
 
