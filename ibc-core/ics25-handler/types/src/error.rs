@@ -1,4 +1,5 @@
 //! Defines the context error type
+use core::fmt::{Debug, Display};
 
 use derive_more::From;
 use displaydoc::Display;
@@ -8,21 +9,15 @@ use ibc_core_connection_types::error::ConnectionError;
 use ibc_core_router_types::error::RouterError;
 use ibc_primitives::prelude::*;
 
-/// Top-level ibc-rs error type that distinguishes between:
+/// Top-level ibc-rs error type that distinguishes between external host or internal protocol errors:
 /// - Errors that originate at the host level that need to be dealt with by the IBC module.
 /// - Errors that originate from internal ibc-rs code paths that need to be surfaced to the host.
 #[derive(Debug, Display)]
-pub enum Error<E> {
+pub enum ContextError<E: Debug + Display> {
     /// Host-defined errors
     Host(E),
     /// Internal protocol-level errors
     Protocol(ProtocolError),
-}
-
-impl<E> From<ProtocolError> for Error<E> {
-    fn from(protocol_error: ProtocolError) -> Self {
-        Self::Protocol(protocol_error)
-    }
 }
 
 /// Encapsulates all internal ibc-rs errors.
@@ -41,6 +36,18 @@ pub enum ProtocolError {
     PacketError(PacketError),
     /// ICS26 Routing error: {0}
     RouterError(RouterError),
+}
+
+impl<E: Display + Debug> From<ProtocolError> for ContextError<E> {
+    fn from(protocol_error: ProtocolError) -> Self {
+        Self::Protocol(protocol_error)
+    }
+}
+
+impl<E: Display + Debug> From<ClientError> for ContextError<E> {
+    fn from(client_error: ClientError) -> Self {
+        Self::Protocol(ProtocolError::ClientError(client_error))
+    }
 }
 
 impl From<ProtocolError> for ClientError {
