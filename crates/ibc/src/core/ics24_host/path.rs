@@ -43,6 +43,8 @@ pub enum Path {
     Ack(AckPath),
     Receipt(ReceiptPath),
     Upgrade(ClientUpgradePath),
+    ChannelUpgrade(ChannelUpgradePath),
+    ChannelUpgradeError(ChannelUpgradeErrorPath),
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
@@ -210,6 +212,26 @@ pub enum ClientUpgradePath {
     UpgradedClientConsensusState(u64),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display(fmt = "channelUpgrades/upgrades/ports/{_0}/channels/{_1}")]
+pub struct ChannelUpgradePath(pub PortId, pub ChannelId);
+
+impl ChannelUpgradePath {
+    pub fn new(port_id: &PortId, channel_id: &ChannelId) -> ChannelUpgradePath {
+        ChannelUpgradePath(port_id.clone(), channel_id.clone())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Display)]
+#[display(fmt = "channelUpgrades/upgradeError/ports/{_0}/channels/{_1}")]
+pub struct ChannelUpgradeErrorPath(pub PortId, pub ChannelId);
+
+impl ChannelUpgradeErrorPath {
+    pub fn new(port_id: &PortId, channel_id: &ChannelId) -> ChannelUpgradeErrorPath {
+        ChannelUpgradeErrorPath(port_id.clone(), channel_id.clone())
+    }
+}
+
 /// Sub-paths which are not part of the specification, but are still
 /// useful to represent for parsing purposes.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -255,6 +277,8 @@ impl FromStr for Path {
             .or_else(|| parse_acks(&components))
             .or_else(|| parse_receipts(&components))
             .or_else(|| parse_upgrades(&components))
+            .or_else(|| parse_channel_upgrade(&components))
+            .or_else(|| parse_channel_upgrade_error(&components))
             .ok_or(PathError::ParseFailure {
                 path: s.to_string(),
             })
@@ -667,6 +691,80 @@ fn parse_upgrades(components: &[&str]) -> Option<Path> {
     }
 }
 
+fn parse_channel_upgrade(components: &[&str]) -> Option<Path> {
+    if components.len() != 6 {
+        return None;
+    }
+
+    let first = match components.first() {
+        Some(f) => *f,
+        None => return None,
+    };
+
+    if first != "channelUpgrades" {
+        return None;
+    }
+
+    let second = components[1];
+    if second != "upgrades" {
+        return None;
+    }
+
+    let port = parse_ports(&components[2..=3]);
+    let channel = parse_channels(&components[4..=5]);
+
+    let port_id = if let Some(Path::Ports(PortPath(port_id))) = port {
+        port_id
+    } else {
+        return None;
+    };
+
+    let channel_id = if let Some(SubPath::Channels(channel_id)) = channel {
+        channel_id
+    } else {
+        return None;
+    };
+
+    Some(ChannelUpgradePath(port_id, channel_id).into())
+}
+
+fn parse_channel_upgrade_error(components: &[&str]) -> Option<Path> {
+    if components.len() != 6 {
+        return None;
+    }
+
+    let first = match components.first() {
+        Some(f) => *f,
+        None => return None,
+    };
+
+    if first != "channelUpgrades" {
+        return None;
+    }
+
+    let second = components[1];
+    if second != "upgradeError" {
+        return None;
+    }
+
+    let port = parse_ports(&components[2..=3]);
+    let channel = parse_channels(&components[4..=5]);
+
+    let port_id = if let Some(Path::Ports(PortPath(port_id))) = port {
+        port_id
+    } else {
+        return None;
+    };
+
+    let channel_id = if let Some(SubPath::Channels(channel_id)) = channel {
+        channel_id
+    } else {
+        return None;
+    };
+
+    Some(ChannelUpgradeErrorPath(port_id, channel_id).into())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1076,6 +1174,33 @@ mod tests {
         assert_eq!(
             path.unwrap(),
             Path::Upgrade(ClientUpgradePath::UpgradedClientConsensusState(0)),
+        );
+    }
+
+    #[test]
+    fn channel_upgrade_path_parses() {
+        let path = "channelUpgrades/upgrades/ports/defaultPort/channels/channel-0";
+        let path = Path::from_str(path);
+
+        assert!(path.is_ok());
+        assert_eq!(
+            path.unwrap(),
+            Path::ChannelUpgrade(ChannelUpgradePath(PortId::default(), ChannelId::default())),
+        );
+    }
+
+    #[test]
+    fn channel_upgrade_error_path_parses() {
+        let path = "channelUpgrades/upgradeError/ports/defaultPort/channels/channel-0";
+        let path = Path::from_str(path);
+
+        assert!(path.is_ok());
+        assert_eq!(
+            path.unwrap(),
+            Path::ChannelUpgradeError(ChannelUpgradeErrorPath(
+                PortId::default(),
+                ChannelId::default()
+            )),
         );
     }
 }
